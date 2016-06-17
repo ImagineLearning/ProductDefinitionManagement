@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -8,6 +9,8 @@ using CommandLine;
 using CommandLine.Text;
 using log4net;
 using log4net.Config;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace RegisterProductDefinition
 {
@@ -17,21 +20,38 @@ namespace RegisterProductDefinition
 
         static void Main(string[] args)
         {
-            // Example usage:
-            //
-            // RegisterProductDefinition --fullPath="C:\Dev\ProductDefinitionManagement\Samples\Sample.zip" --product="ILE" --revision="123" --comments="Automatically uploaded by helix export build based on changeset 71983"
-            //
-            // Potential outcomes:
-            //
-            //   - Success
-            //   - Rejected due to duplicate product:revision combination
-
             // Configure log4net based on the contents of the App.config
             XmlConfigurator.Configure();
             
 	        Parameters parameters = new Parameters();
 	        bool success = CommandLine.Parser.Default.ParseArguments(args, parameters);
-		}
+
+	        if (!success)
+	            Environment.Exit(-1);
+
+            string blobName = parameters.Product.ToLowerInvariant() + "-" + parameters.Revision.ToLowerInvariant() + ".zip";
+
+            string blobContainerConnectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
+            CloudBlobContainer cloudBlobContainer = new CloudBlobContainer(new Uri(blobContainerConnectionString));
+
+            if (cloudBlobContainer.GetBlobReference(blobName).Exists())
+            {
+                Log.Info(blobName+" already exists in the blob container");
+                Environment.Exit(-1);
+            }
+            else
+            {
+                CloudBlockBlob blockBlob = cloudBlobContainer.GetBlockBlobReference(blobName);
+                Log.Info("Attempting to upload " + blobName);
+
+                using (var fileStream = System.IO.File.OpenRead(parameters.FullPath))
+                {
+                    blockBlob.UploadFromStream(fileStream, AccessCondition.GenerateIfNotExistsCondition());
+                }
+
+                Log.Info(blobName + " uploaded.");
+            }
+        }
     }
 
     public class Parameters
@@ -44,9 +64,6 @@ namespace RegisterProductDefinition
 
 		[Option("revision", Required = true, HelpText = "Revision, note this is a string so enclose numbers in double quotes such as \"123\"")]
 		public string Revision { get; set; }
-
-		[Option("comments", Required = false, HelpText = "Ideally this would mention who/what uploaded this product revision and any helpful contextual information like source control changesets, etc.")]
-		public string Comments { get; set; }
 
 		[HelpOption]
 		public string GetUsage()

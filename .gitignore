@@ -5,3 +5,6 @@
 /RegisterProductDefinition/bin/Debug
 /RegisterProductDefinition/obj/Debug
 /packages
+/RegisterProductDefinition.Test/bin/Debug
+/RegisterProductDefinition.Test/obj/Debug
+/Samples
