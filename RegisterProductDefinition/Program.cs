@@ -62,7 +62,7 @@ namespace RegisterProductDefinition
 		        }
 
 		        CloudAPIClient.CloudApiClientConfiguration cloudApiClientConfiguration = new CloudApiClientConfiguration();
-		        cloudApiClientConfiguration.SetEnvironment(CloudApiClientConfiguration.KnownEnvironments.LocalDevEnvironment);
+		        cloudApiClientConfiguration.SetEnvironment(CloudApiClientConfiguration.KnownEnvironments.TestEnvironment);
 		        cloudApiClientConfiguration.SetClientSecret(clientId: "UnitSequencerTests", clientSecret: "8xG8xUBGymJ9");
 
 		        CloudAPIClient.AuthenticationApi _authenticationApi = new AuthenticationApi();
@@ -81,7 +81,7 @@ namespace RegisterProductDefinition
 	        }
 	        catch (CloudAPIClient.ProductApi.AuthenticationException)
 	        {
-		        Log.Error("FAILURE: The authentication key that was used to upload the zip file is invalid (rejected).  Please talk to Grady/Matt/Devin about resolving this issue");
+		        Log.Error("FAILURE: The authentication key that the sequencer service used to attempt to upload the zip file is invalid (rejected).");
 		        Environment.Exit(failureExistCode);
 	        }
 	        catch (CloudAPIClient.ProductApi.DuplicateProductRevisionException)
