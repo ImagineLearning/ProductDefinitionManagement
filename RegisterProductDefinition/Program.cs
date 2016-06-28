@@ -7,12 +7,14 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using CloudAPIClient;
 using CommandLine;
 using CommandLine.Text;
 using log4net;
 using log4net.Config;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
+using Environment = System.Environment;
 
 namespace RegisterProductDefinition
 {
@@ -24,74 +26,71 @@ namespace RegisterProductDefinition
         {
             const int failureExistCode = -1;
 
-            try
-            {
-                // Configure log4net based on the contents of the App.config
-                XmlConfigurator.Configure();
+	        try
+	        {
+		        // Configure log4net based on the contents of the App.config
+		        XmlConfigurator.Configure();
 
-                Parameters parameters = new Parameters();
-                bool success = CommandLine.Parser.Default.ParseArguments(args, parameters);
+		        Parameters parameters = new Parameters();
+		        bool success = CommandLine.Parser.Default.ParseArguments(args, parameters);
 
-                if (!success)
-                    Environment.Exit(failureExistCode);
+		        if (!success)
+			        Environment.Exit(failureExistCode);
 
-                if (parameters.Product.Length < 1)
-                {
-                    Console.WriteLine("Product identifier's length must be >= 1 ");
-                    Environment.Exit(failureExistCode);
-                }
+		        if (parameters.Product.Length < 1)
+		        {
+			        Log.Error("Product identifier's length must be >= 1 ");
+			        Environment.Exit(failureExistCode);
+		        }
 
-                if (parameters.Revision.Length < 1)
-                {
-                    Console.WriteLine("Revision's length must be >= 1");
-                    Environment.Exit(failureExistCode);
-                }
+		        if (parameters.Revision.Length < 1)
+		        {
+					Log.Error("Revision's length must be >= 1");
+			        Environment.Exit(failureExistCode);
+		        }
 
-                string blobName = parameters.Product.ToLowerInvariant() + "-" + parameters.Revision.ToLowerInvariant() +
-                                  ".zip";
+		        if (!File.Exists(parameters.FullPath))
+		        {
+					Log.Error("File not found [" + parameters.FullPath + "]");
+			        Environment.Exit(failureExistCode);
+		        }
 
-                string blobContainerConnectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
-                CloudBlobContainer cloudBlobContainer = new CloudBlobContainer(new Uri(blobContainerConnectionString));
+		        if (!parameters.FullPath.ToLowerInvariant().EndsWith(".zip"))
+		        {
+					Log.Error("Product definition must be a .zip file");
+			        Environment.Exit(failureExistCode);
+		        }
 
-                if (cloudBlobContainer.GetBlobReference(blobName).Exists())
-                {
-                    Console.WriteLine(blobName + " already exists in the blob container");
-                    Environment.Exit(failureExistCode);
-                }
-                else
-                {
-                    CloudBlockBlob blockBlob = cloudBlobContainer.GetBlockBlobReference(blobName);
-                    Log.Info("Attempting to upload " + blobName);
+		        CloudAPIClient.CloudApiClientConfiguration cloudApiClientConfiguration = new CloudApiClientConfiguration();
+		        cloudApiClientConfiguration.SetEnvironment(CloudApiClientConfiguration.KnownEnvironments.LocalDevEnvironment);
+		        cloudApiClientConfiguration.SetClientSecret(clientId: "UnitSequencerTests", clientSecret: "8xG8xUBGymJ9");
 
-                    if (!File.Exists(parameters.FullPath))
-                    {
-                        Console.WriteLine("File not found [" + parameters.FullPath + "]");
-                        Environment.Exit(failureExistCode);
-                    }
+		        CloudAPIClient.AuthenticationApi _authenticationApi = new AuthenticationApi();
+		        string ilAdminToken = _authenticationApi.GetAuthenticationToken(username: "cloud_test@imaginelearning.com",
+			        password: "imagine");
 
-                    if (!parameters.FullPath.ToLowerInvariant().EndsWith(".zip"))
-                    {
-                        Console.WriteLine("Product definition must be a .zip file");
-                        Environment.Exit(failureExistCode);
-                    }
+		        ProductApi productApi = new ProductApi();
 
-                    using (var fileStream = System.IO.File.OpenRead(parameters.FullPath))
-                    {
-                        blockBlob.UploadFromStream(fileStream, AccessCondition.GenerateIfNotExistsCondition());
-                    }
+		        using (var fileStream = System.IO.File.OpenRead(parameters.FullPath))
+		        {
+			        Log.Info("Uploading " + parameters.FullPath+" as product ["+parameters.Product.ToLowerInvariant()+"] revision ["+parameters.Revision.ToLowerInvariant()+"]");
+			        productApi.UploadUnitSequenceProductRevision(ilAdminToken, parameters.Product.ToLowerInvariant(),
+				        parameters.Revision.ToLowerInvariant(), fileStream);
+					Log.Info("Upload complete");
+		        }
+	        }
+	        catch (CloudAPIClient.ProductApi.AuthenticationException)
+	        {
+		        Log.Error("FAILURE: The authentication key that was used to upload the zip file is invalid (rejected).  Please talk to Grady/Matt/Devin about resolving this issue");
+		        Environment.Exit(failureExistCode);
+	        }
+	        catch (CloudAPIClient.ProductApi.DuplicateProductRevisionException)
+	        {
+		        Log.Error("This product & revision combination have already been uploaded.  No change was made.");
+				Environment.Exit(failureExistCode);
+			}
 
-                    Log.Info(blobName + " uploaded.");
-                }
-            }
-            catch (StorageException exception)
-            {
-                if (exception.Message.Contains("403"))
-                {
-                    Console.WriteLine("FAILURE: The authentication key that was used to upload the zip file is invalid (rejected).  Please talk to Grady/Matt/Devin about resolving this issue");
-                    Environment.Exit(failureExistCode);
-                }
-            }
-            catch (Exception exception)
+			catch (Exception exception)
             {
                 Log.Fatal(exception.Message, exception);
                 Environment.Exit(failureExistCode);
