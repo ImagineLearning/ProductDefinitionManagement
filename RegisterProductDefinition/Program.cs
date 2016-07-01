@@ -61,6 +61,10 @@ namespace RegisterProductDefinition
 			        Environment.Exit(failureExistCode);
 		        }
 
+                // Decided we wanted to stick with all upper case for product names
+	            parameters.Product = parameters.Product.ToUpper();
+	            parameters.Revision = parameters.Revision.ToUpper();
+
 		        CloudAPIClient.CloudApiClientConfiguration cloudApiClientConfiguration = new CloudApiClientConfiguration();
 		        cloudApiClientConfiguration.SetEnvironment(CloudApiClientConfiguration.KnownEnvironments.TestEnvironment);
 		        cloudApiClientConfiguration.SetClientSecret(clientId: "UnitSequencerTests", clientSecret: "8xG8xUBGymJ9");
@@ -73,8 +77,8 @@ namespace RegisterProductDefinition
 
 		        using (var fileStream = System.IO.File.OpenRead(parameters.FullPath))
 		        {
-			        Log.Info("Uploading " + parameters.FullPath+" as product ["+parameters.Product.ToLowerInvariant()+"] revision ["+parameters.Revision.ToLowerInvariant()+"]");
-			        productApi.UploadUnitSequenceProductRevision(ilAdminToken, parameters.Product.ToLowerInvariant(),
+			        Log.Info("Uploading " + parameters.FullPath+" as product ["+parameters.Product+"] revision ["+parameters.Revision+"]");
+			        productApi.UploadUnitSequenceProductRevision(ilAdminToken, parameters.Product,
 				        parameters.Revision.ToLowerInvariant(), fileStream);
 					Log.Info("Upload complete");
 		        }
