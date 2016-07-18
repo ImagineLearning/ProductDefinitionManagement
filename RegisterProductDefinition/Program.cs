@@ -61,9 +61,9 @@ namespace RegisterProductDefinition
 			        Environment.Exit(failureExistCode);
 		        }
 
-                // Decided we wanted to stick with all upper case for product names
-	            parameters.Product = parameters.Product.ToUpper();
-	            parameters.Revision = parameters.Revision.ToUpper();
+                // Decided we wanted to stick with all lower case for product names.  "ILE" and "ile" both look fine but "SPANISH" looks nasty all upper.
+	            parameters.Product = parameters.Product.ToLowerInvariant();
+	            parameters.Revision = parameters.Revision.ToLowerInvariant();
 
 		        CloudAPIClient.CloudApiClientConfiguration cloudApiClientConfiguration = new CloudApiClientConfiguration();
 		        cloudApiClientConfiguration.SetEnvironment(CloudApiClientConfiguration.KnownEnvironments.TestEnvironment);
